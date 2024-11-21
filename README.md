@@ -132,5 +132,3 @@ pipenv shell
 [vernairesl][Github](https://github.com/vernairesl)
 
 [shrayawasti][Github](https://github.com/shrayawasti)
-
-
