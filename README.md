@@ -1,9 +1,5 @@
 ![Lint-free](https://github.com/nyu-software-engineering/containerized-app-exercise/actions/workflows/lint.yml/badge.svg)
 
-# Containerized App Exercise
-
-Build a containerized app that uses machine learning. See [instructions](./instructions.md) for details.
-
 ## Overview
 This project is a containerized boyfriend simulator application where users can interact with a virtual boyfriend by speaking into a microphone. The spoken input is transcribed using the Google Cloud Speech-to-Text API, and the transcribed information is processed using the Character API to generate personalized, dynamic boyfriend responses, creating an immersive conversational experience.
  
