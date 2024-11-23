@@ -8,15 +8,14 @@ flask = "==3.1.0"
 pymongo = "==4.10.1"
 python-dotenv = "==1.0.1"
 requests = "==2.31.0"
-certifi = "==2024.8.30"
+certifi = "*"
 characterai = { git = "git+https://github.com/kramcat/characterai.git", ref = "80b1bbff11859f6d0ec0510abb7f9e0982babb93" }
 werkzeug = "==3.1.3"
 pydub = "*"
+ffmpeg-python = "*"
 
 [dev-packages]
 pytest = "*"
-pylint = "*"
-black = "*"
 
 [requires]
 python_version = "3.10"

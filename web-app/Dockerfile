@@ -4,29 +4,30 @@ FROM python:3.10-slim
 # Set working directory
 WORKDIR /app
 
-# Copy project files
-COPY Pipfile Pipfile.lock ./
+# Copy requirements files and install dependencies
+COPY requirements.txt ./
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    build-essential \
+    curl \
+    git \  
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Copy environment file
 COPY .env /app/.env
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    ffmpeg \
-    curl \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Install pipenv and dependencies
-RUN pip install --no-cache-dir pipenv && \
-    pipenv install --system --deploy
-
-# Copy the rest of the application files
+# Copy all project files
 COPY . .
+
+# Ensure the uploads directory exists and is writable
+RUN mkdir -p /app/uploads && chmod -R 777 /app/uploads
 
 # Expose the application port
 EXPOSE 8000
 
-# Set environment variables
+# Set default environment variables
 ENV FLASK_ENV=production
 
-# Run the application
+# Run the Flask application
 CMD ["python", "app.py"]
