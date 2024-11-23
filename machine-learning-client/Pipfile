@@ -17,7 +17,6 @@ werkzeug = "==2.3.7"
 watchdog = "*"
 pydub = "==0.25.1"
 flask-cors = "*"
-datetime = "*"
 
 [dev-packages]
 pytest = "*"

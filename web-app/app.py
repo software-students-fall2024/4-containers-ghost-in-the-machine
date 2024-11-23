@@ -14,10 +14,16 @@ import pymongo
 from bson import ObjectId
 import certifi
 from pydub import AudioSegment
+import shutil
+import uuid
+import time
 
-# Configure pydub to use ffmpeg
-AudioSegment.converter = "/opt/homebrew/bin/ffmpeg"
-AudioSegment.ffprobe = "/opt/homebrew/bin/ffprobe"
+
+ffmpeg_path = shutil.which("ffmpeg") or "/usr/bin/ffmpeg"
+ffprobe_path = shutil.which("ffprobe") or "/usr/bin/ffprobe"
+
+AudioSegment.converter = ffmpeg_path
+AudioSegment.ffprobe = ffprobe_path
 
 
 def setup_logging():
@@ -203,6 +209,18 @@ def configure_chat_routes(flask_app, users, transcriptions):
             logging.error("Chat error: %s", error)
             return jsonify({"error": "Failed to process chat message"}), 500
 
+def generate_unique_filename(original_filename):
+    """Generate a unique filename using UUID."""
+    # Extract the file extension from the original filename
+    file_extension = os.path.splitext(original_filename)[1]
+    
+    # Generate a unique ID
+    unique_id = uuid.uuid4()
+    
+    # Create the new unique filename
+    unique_filename = f"{unique_id}{file_extension}"
+    return unique_filename
+
 
 def configure_audio_routes(flask_app):
     """Define routes related to audio functionality."""
@@ -214,7 +232,11 @@ def configure_audio_routes(flask_app):
 
         audio_file = request.files["audio"]
         original_filename = secure_filename(audio_file.filename)
-        original_file_path = os.path.join(flask_app.config["UPLOAD_FOLDER"], original_filename)
+        # trying to see if unique id's will help
+        uuid_filepath = generate_unique_filename(original_filename)
+        logging.info("file_path: %s + %s", flask_app.config["UPLOAD_FOLDER"], uuid_filepath)
+        original_file_path = os.path.join(flask_app.config["UPLOAD_FOLDER"], uuid_filepath)
+        logging.info("file_path before try block: %s", original_file_path)
 
         try:
             audio_file.save(original_file_path)
@@ -241,6 +263,7 @@ def configure_transcription_routes(flask_app, transcriptions):
     def get_latest_transcription():
         """Fetch the most recent transcription from MongoDB."""
         try:
+            time.sleep(5)
             # Get the most recent transcription
             latest = transcriptions.find_one(
                 sort=[("_id", pymongo.DESCENDING)]

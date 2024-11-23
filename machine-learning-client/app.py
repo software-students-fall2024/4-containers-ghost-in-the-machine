@@ -137,7 +137,7 @@ def cleanup_files(*files):
 def process_file(filepath):
     """Process a single audio file."""
     if filepath in processed_files:
-        logging.info("File already processed, skipping: %s", filepath)
+        logging.info("File already processed (in process_file), skipping: %s", filepath)
         return
 
     logging.info("Processing file: %s", filepath)
@@ -154,6 +154,7 @@ def process_file(filepath):
     except RuntimeError as error:
         logging.error("Error processing file %s: %s", filepath, error)
     finally:
+        logging.info("Calling cleanup_files for %s", filepath)
         cleanup_files(filepath, filepath.replace(".wav", "_linear16.wav"))
 
 
@@ -178,7 +179,7 @@ class AudioFileHandler(FileSystemEventHandler):
         Files are processed only if the size remains unchanged for 2 seconds.
         """
         if filepath in processed_files:
-            logging.debug("File already processed, skipping: %s", filepath)
+            logging.debug("File already processed (in schedule_processing), skipping: %s", filepath)
             return
 
         if re.search(r"_linear16\.wav$", filepath):
