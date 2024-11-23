@@ -21,6 +21,11 @@ services:
       - mongodb
     networks:
       - app_network
+    volumes:
+      - ./machine-learning-client/service_account.json:/app/service_account.json
+      - shared_audio:/app/../web-app/uploads
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /app/service_account.json
 
   web-app:
     build:
@@ -35,9 +40,12 @@ services:
       - mongodb
     networks:
       - app_network
-
+    volumes:
+      - shared_audio:/app/uploads
+      
 volumes:
   mongo_data:
+  shared_audio:
 
 networks:
   app_network:

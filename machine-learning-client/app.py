@@ -48,6 +48,14 @@ UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../web
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Google Speech-to-Text client
+google_credentials = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "/app/service_account.json")
+if not os.path.exists(google_credentials):
+    logging.error("Service account file not found at %s", google_credentials)
+    raise RuntimeError("Service account file not found. Ensure it is correctly mounted.")
+
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials
+
+# Initialize the Google Speech-to-Text client
 try:
     speech_client = speech.SpeechClient()
     logging.info("Google Speech-to-Text client initialized.")

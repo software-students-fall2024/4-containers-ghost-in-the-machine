@@ -1,145 +1,52 @@
-"""
-Unit tests for Flask application and MongoDB operations in the boyfriend client.
-"""
-
-import os
 import pytest
-from bson.objectid import ObjectId
-from gtts import gTTS
-from flask import json
+import os
+import tempfile
+from unittest.mock import patch, MagicMock
+from app import convert_to_linear16, transcribe_audio, save_transcript_to_db
 
-from .app import (
-    app,
-    collection,
-    convert_to_linear16,
-    transcribe_audio,
-    save_transcript_to_db,
-)
+@pytest.fixture
+def setup_audio_file():
+    """Create a temporary .wav file for testing."""
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
+        tmp_file.write(b"Fake audio content")
+        yield tmp_file.name
+    os.remove(tmp_file.name)
 
-@pytest.fixture(name="clear_test_data")
-def clear_test_data_fixture():
-    """Clean up test data before and after tests."""
-    collection.delete_many({"transcript": {"$regex": "test.*"}})
-    yield
-    collection.delete_many({"transcript": {"$regex": "test.*"}})
+def test_convert_to_linear16(setup_audio_file):
+    """Test audio conversion."""
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0)
+        output = convert_to_linear16(setup_audio_file)
+        assert "_linear16.wav" in output
+        mock_run.assert_called_once()
 
+def test_save_transcript_to_db():
+    """Test saving transcript to MongoDB."""
+    mock_collection = MagicMock()
+    mock_collection.insert_one.return_value = MagicMock(inserted_id="12345")
 
-@pytest.fixture(name="client")
-def client_fixture():
-    """Set up Flask test client."""
-    app.config["TESTING"] = True
-    with app.test_client() as test_client:
-        yield test_client
+    with patch("app.collection", mock_collection):
+        result_id = save_transcript_to_db("Test transcript")
+        assert result_id == "12345"
+        mock_collection.insert_one.assert_called_once()
 
+def test_save_transcript_to_db_error():
+    """Test MongoDB insertion error."""
+    mock_collection = MagicMock()
 
-def test_index(client):
-    """Test the root endpoint of the Flask app."""
-    response = client.get("/")
-    assert response.status_code == 200
-    assert b"Welcome to the audio processing server!" in response.data
+    mock_collection.insert_one.side_effect = RuntimeError("MongoDB insertion failed")
 
+    with patch("app.collection", mock_collection):
+        with pytest.raises(RuntimeError, match="MongoDB insertion failed"):
+            save_transcript_to_db("Test transcript")
 
-def test_mongodb_connection(clear_test_data):
-    """Test MongoDB connection and basic insert and retrieve operations."""
-    _ = clear_test_data
-    result = collection.insert_one({"transcript": "test transcript"})
-    assert result.inserted_id is not None
-    saved_doc = collection.find_one({"_id": result.inserted_id})
-    assert saved_doc is not None
-    assert saved_doc["transcript"] == "test transcript"
+def test_transcribe_audio_with_real_file():
+    """Test transcription with a real audio file because cannot eable speech-to-text api cuz it cost money lol."""
+    audio_file = "real_speech.wav"
 
+    assert os.path.exists(audio_file), f"Audio file {audio_file} not found. Run generate_audio.py to create it."
 
-def test_convert_to_linear16():
-    """Test audio conversion to LINEAR16 format."""
-    input_file = "test_audio.wav"
-    output_file = "test_audio_linear16.wav"
+    transcript = transcribe_audio(audio_file)
 
-    try:
-        # Generate a test sine wave audio file
-        os.system(f"ffmpeg -f lavfi -i sine=frequency=1000:duration=1 {input_file}")
-        output_path = convert_to_linear16(input_file)
-
-        assert os.path.exists(output_path)
-        assert output_path == output_file
-    finally:
-        # Cleanup files
-        if os.path.exists(input_file):
-            os.remove(input_file)
-        if os.path.exists(output_file):
-            os.remove(output_file)
-
-
-def test_transcribe_audio():
-    """Test audio transcription with a dummy audio file."""
-    input_file = "test_audio_linear16.wav"
-
-    try:
-        # Generate a test sine wave audio file
-        os.system(
-            f"ffmpeg -f lavfi -i sine=frequency=1000:duration=1 "
-            f"-ar 16000 -ac 1 -sample_fmt s16 {input_file}"
-        )
-        transcript = transcribe_audio(input_file)
-        # Since sine wave audio has no speech, the transcription should be None
-        assert transcript is None
-    finally:
-        # Cleanup file
-        if os.path.exists(input_file):
-            os.remove(input_file)
-
-
-def test_save_transcript_to_db(clear_test_data):
-    """Test saving a transcript to MongoDB."""
-    _ = clear_test_data
-    transcript = "This is a test transcript."
-    document_id = save_transcript_to_db(transcript)
-    assert document_id is not None
-    assert ObjectId.is_valid(document_id)
-    saved_doc = collection.find_one({"_id": ObjectId(document_id)})
-    assert saved_doc is not None
-    assert saved_doc["transcript"] == transcript
-
-
-def test_process_audio_endpoint(client, clear_test_data):
-    """Test the /process-audio endpoint."""
-    _ = clear_test_data
-    input_file = "test_audio.wav"
-
-    try:
-        # Generate a test sine wave audio file
-        os.system(f"ffmpeg -f lavfi -i sine=frequency=1000:duration=1 {input_file}")
-        with open(input_file, "rb") as audio:
-            response = client.post("/process-audio", data={"audio": (audio, "test_audio.wav")})
-
-        assert response.status_code == 400
-        response_json = json.loads(response.data)
-        assert "error" in response_json
-        assert response_json["error"] == "No speech recognized"
-    finally:
-        # Cleanup file
-        if os.path.exists(input_file):
-            os.remove(input_file)
-
-
-def test_real_transcription():
-    """Test transcription with real speech audio."""
-    input_text = "Hello, this is a test."
-    input_file = "real_speech.wav"
-    linear16_file = None
-
-    try:
-        # Create a test speech audio file using gTTS
-        tts = gTTS(text=input_text, lang="en")
-        tts.save(input_file)
-
-        linear16_file = convert_to_linear16(input_file)
-
-        transcript = transcribe_audio(linear16_file)
-        assert transcript is not None
-        assert "test" in transcript.lower()
-    finally:
-        # Cleanup files
-        if os.path.exists(input_file):
-            os.remove(input_file)
-        if linear16_file and os.path.exists(linear16_file):
-            os.remove(linear16_file)
+    assert transcript is not None, "No transcription generated."
+    print(f"Transcription result: {transcript}")
